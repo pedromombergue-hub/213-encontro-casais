@@ -47,9 +47,38 @@ function brasilDay(){return new Intl.DateTimeFormat('en-CA',{timeZone:'America/S
 function deviceId(){let id=localStorage.getItem(DEVICE_KEY);if(!id){id=crypto.randomUUID();localStorage.setItem(DEVICE_KEY,id);}return id;}
 function updatePrayerButton(){if(Date.now()>=PRAYER_END){prayerButton.disabled=true;prayerButton.textContent='Corrente de oração encerrada';return;}if(localStorage.getItem(PRAYER_STORAGE)===brasilDay()){prayerButton.disabled=true;prayerButton.textContent='✓ Sua oração de hoje foi registrada';}}
 async function prayerRpc(fn,payload={}){const response=await fetch(PRAYER_CONFIG.url+'/rest/v1/rpc/'+fn,{method:'POST',headers:{'Content-Type':'application/json','apikey':PRAYER_CONFIG.anonKey},body:JSON.stringify(payload)});if(!response.ok)throw new Error('Erro ao consultar contador');return response.json();}
-async function loadPrayers(){try{const total=await prayerRpc('total_oracoes_213');prayerTotal.textContent=Number(total).toLocaleString('pt-BR');prayerNote.textContent='Total coletivo de orações declaradas. Um registro diário por navegador; não exige cadastro.';}catch(e){prayerTotal.textContent='—';prayerFeedback.textContent='Não foi possível carregar o total. Verifique a conexão e tente novamente.';}}
-prayerButton.addEventListener('click',async()=>{if(Date.now()>=PRAYER_END)return;if(localStorage.getItem(PRAYER_STORAGE)===brasilDay()){updatePrayerButton();return;}prayerButton.disabled=true;prayerFeedback.textContent='Registrando sua oração…';try{const result=await prayerRpc('registrar_oracao_213',{p_identificador:deviceId()});prayerTotal.textContent=Number(result.total).toLocaleString('pt-BR');if(result.status==='encerrado'){prayerFeedback.textContent='A corrente foi encerrada. Obrigado por suas orações!';updatePrayerButton();return;}localStorage.setItem(PRAYER_STORAGE,brasilDay());prayerFeedback.textContent=result.status==='registrado'?'Obrigado por rezar! Sua participação foi somada à corrente de oração.':'Sua oração de hoje já estava registrada. Obrigado por participar!';updatePrayerButton();showHeartCard();}catch(e){prayerButton.disabled=false;prayerFeedback.textContent='Não foi possível registrar. Verifique sua conexão e tente novamente.';}});
+async function loadPrayers(){try{const total=await prayerRpc('total_oracoes_213');prayerTotal.textContent=Number(total).toLocaleString('pt-BR');prayerNote.textContent='Total coletivo de orações declaradas. Um registro diário por navegador; não exige cadastro.';if(prayerFeedback.textContent==='Não foi possível carregar o total. Verifique a conexão e tente novamente.')prayerFeedback.textContent='';}catch(e){prayerTotal.textContent='—';prayerFeedback.textContent='Não foi possível carregar o total. Verifique a conexão e tente novamente.';}}
+prayerButton.addEventListener('click',async()=>{
+ if(Date.now()>=PRAYER_END)return;
+ if(localStorage.getItem(PRAYER_STORAGE)===brasilDay()){updatePrayerButton();return;}
+ prayerButton.disabled=true;
+ prayerFeedback.textContent='Registrando sua oração…';
+ let result;
+ try{
+   result=await prayerRpc('registrar_oracao_213',{p_identificador:deviceId()});
+ }catch(e){
+   prayerButton.disabled=false;
+   prayerFeedback.textContent='Não foi possível confirmar o registro. Verifique sua conexão e tente novamente.';
+   return;
+ }
+ if(result.status==='encerrado'){
+   prayerFeedback.textContent='A corrente foi encerrada. Obrigado por suas orações!';
+   if(Number.isFinite(Number(result.total)))prayerTotal.textContent=Number(result.total).toLocaleString('pt-BR');
+   updatePrayerButton();return;
+ }
+ if(result.status!=='registrado'&&result.status!=='ja_registrado'){
+   prayerButton.disabled=false;
+   prayerFeedback.textContent='O servidor retornou uma resposta inesperada. Tente novamente.';
+   return;
+ }
+ localStorage.setItem(PRAYER_STORAGE,brasilDay());
+ prayerTotal.textContent=Number(result.total).toLocaleString('pt-BR');
+ prayerFeedback.textContent=result.status==='registrado'?'Obrigado por rezar! Sua participação foi somada à corrente de oração.':'Sua oração de hoje já estava registrada. Obrigado por participar!';
+ updatePrayerButton();
+ try{showHeartCard();}catch(e){console.warn('Cartão indisponível neste navegador:',e);prayerFeedback.textContent+=' O cartão não pôde ser exibido neste aparelho.';}
+});
 updatePrayerButton();loadPrayers();setInterval(loadPrayers,60000);
+if(localStorage.getItem(PRAYER_STORAGE)===brasilDay() && Date.now()<PRAYER_END){prayerFeedback.textContent='Sua oração de hoje está registrada. Você pode abrir seu Coração do Dia novamente.';const reopen=document.createElement('button');reopen.type='button';reopen.textContent='♥ Ver meu Coração do Dia';reopen.style.marginTop='10px';reopen.addEventListener('click',()=>{try{showHeartCard()}catch(e){prayerFeedback.textContent='Não foi possível abrir o cartão neste aparelho.'}});prayerFeedback.insertAdjacentElement('afterend',reopen);}
 
 // Cartão gerado no próprio aparelho, sem enviar nomes, datas ou imagens a terceiros.
 const heartModal=document.getElementById('heart-modal');
