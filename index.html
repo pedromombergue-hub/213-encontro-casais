@@ -81,9 +81,9 @@ updatePrayerButton();loadPrayers();setInterval(loadPrayers,60000);
 if(localStorage.getItem(PRAYER_STORAGE)===brasilDay() && Date.now()<PRAYER_END){prayerFeedback.textContent='Sua oração de hoje está registrada. Você pode abrir seu Coração do Dia novamente.';const reopen=document.createElement('button');reopen.type='button';reopen.textContent='♥ Ver meu Coração do Dia';reopen.style.marginTop='10px';reopen.addEventListener('click',()=>{try{showHeartCard()}catch(e){prayerFeedback.textContent='Não foi possível abrir o cartão neste aparelho.'}});prayerFeedback.insertAdjacentElement('afterend',reopen);}
 
 // Cartão gerado no próprio aparelho, sem enviar nomes, datas ou imagens a terceiros.
-const heartModal=document.getElementById('heart-modal');
-const heartCanvas=document.getElementById('heart-canvas');
-const heartCtx=heartCanvas.getContext('2d');
+let heartModal;
+let heartCanvas;
+let heartCtx;
 const heartPhrases=[
  'Que o amor de Deus renove cada família.',
  'Uma família que reza cultiva a esperança.',
@@ -105,12 +105,104 @@ function drawHeartCard(){const c=heartCtx,w=1080,h=1350;const grad=c.createLinea
  c.font='29px Georgia';c.fillText('Nossa Senhora de Fátima, rogai por nós.',540,1070);c.fillText('São João Paulo II, rogai por nós.',540,1120);
  c.fillStyle='#a77d28';c.font='bold 26px Arial';c.fillText('@nucleosaojoao  •  13 e 14 de março de 2027',540,1220);
 }
-function showHeartCard(){drawHeartCard();heartModal.classList.add('open');heartModal.setAttribute('aria-hidden','false');document.getElementById('heart-close').focus();}
-function closeHeartCard(){heartModal.classList.remove('open');heartModal.setAttribute('aria-hidden','true');}
-document.getElementById('heart-close').onclick=closeHeartCard;
-heartModal.addEventListener('click',e=>{if(e.target===heartModal)closeHeartCard();});
-document.addEventListener('keydown',e=>{if(e.key==='Escape')closeHeartCard();});
-function heartBlob(){return new Promise(resolve=>heartCanvas.toBlob(resolve,'image/png'));}
-document.getElementById('heart-download').onclick=()=>{const a=document.createElement('a');a.href=heartCanvas.toDataURL('image/png');a.download='coracao-do-dia-213-ecnsj.png';a.click();};
-document.getElementById('heart-share').onclick=async()=>{const blob=await heartBlob();if(!blob)return;const file=new File([blob],'coracao-do-dia-213-ecnsj.png',{type:'image/png'});if(navigator.canShare&&navigator.canShare({files:[file]})){try{await navigator.share({files:[file],title:'Coração do dia — 213º Encontro de Casais',text:'Hoje rezei pelo 213º Encontro de Casais do Núcleo São João!'});return;}catch(e){if(e.name==='AbortError')return;}}document.getElementById('heart-download').click();alert('Imagem salva. Abra o Instagram ou Facebook e escolha a imagem para publicar.');};
-</script><div aria-hidden="true" class="heart-modal" id="heart-modal"><div aria-label="Mensagem do coração do dia" aria-modal="true" class="heart-dialog" role="dialog"><button aria-label="Fechar" class="heart-close" id="heart-close" type="button">×</button><h2>Seu coração em oração</h2><p>Obrigado por fazer parte desta corrente de intercessão!</p><canvas aria-label="Cartão de oração do dia" height="1350" id="heart-canvas" width="1080"></canvas><div class="heart-actions"><button id="heart-share" type="button">Compartilhar imagem</button><button id="heart-download" type="button">Salvar imagem para Instagram ou Facebook</button></div><small>Para publicar no Instagram, salve a imagem e selecione-a no aplicativo. No celular, “Compartilhar imagem” pode abrir os aplicativos disponíveis.</small></div></div></body></html>
+function showHeartCard() {
+  heartModal = document.getElementById('heart-modal');
+  heartCanvas = document.getElementById('heart-canvas');
+
+  if (!heartModal || !heartCanvas) {
+    alert('O cartão ainda não está disponível. Atualize a página.');
+    return;
+  }
+
+  heartCtx = heartCanvas.getContext('2d');
+  drawHeartCard();
+
+  heartModal.classList.add('open');
+  heartModal.setAttribute('aria-hidden', 'false');
+
+  document.getElementById('heart-close')?.focus();
+}
+function closeHeartCard() {
+  const modal = document.getElementById('heart-modal');
+  if (!modal) return;
+
+  modal.classList.remove('open');
+  modal.setAttribute('aria-hidden', 'true');
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const closeButton = document.getElementById('heart-close');
+  const downloadButton = document.getElementById('heart-download');
+  const shareButton = document.getElementById('heart-share');
+
+  if (closeButton) {
+    closeButton.onclick = closeHeartCard;
+  }
+
+  if (downloadButton) {
+    downloadButton.onclick = () => {
+      const canvas = document.getElementById('heart-canvas');
+      if (!canvas) return;
+
+      const link = document.createElement('a');
+      link.href = canvas.toDataURL('image/png');
+      link.download = 'coracao-do-dia-213-ecnsj.png';
+      link.click();
+    };
+  }
+
+  if (shareButton) {
+    shareButton.onclick = async () => {
+      const canvas = document.getElementById('heart-canvas');
+      if (!canvas) return;
+
+      const blob = await new Promise(resolve =>
+        canvas.toBlob(resolve, 'image/png')
+      );
+
+      if (!blob) return;
+
+      const file = new File(
+        [blob],
+        'coracao-do-dia-213-ecnsj.png',
+        { type: 'image/png' }
+      );
+
+      try {
+        if (navigator.canShare?.({ files: [file] })) {
+          await navigator.share({
+            files: [file],
+            title: 'Coração do Dia - 213º Encontro de Casais'
+          });
+        } else {
+          alert('Use o botão Baixar imagem para salvar o cartão.');
+        }
+      } catch (error) {
+        if (error.name !== 'AbortError') {
+          alert('Não foi possível compartilhar o cartão.');
+        }
+      }
+    };
+  }
+});
+
+document.addEventListener('click', event => {
+  if (event.target.id === 'heart-modal') {
+    closeHeartCard();
+  }
+});
+
+document.addEventListener('keydown', event => {
+  if (event.key === 'Escape') {
+    closeHeartCard();
+  }
+});
+
+function heartBlob() {
+  const canvas = document.getElementById('heart-canvas');
+  return new Promise(resolve => {
+    if (!canvas) return resolve(null);
+    canvas.toBlob(resolve, 'image/png');
+  });
+}
+</script><div aria-hidden="true" class="heart-modal" ><div aria-label="Mensagem do coração do dia" aria-modal="true" class="heart-dialog" role="dialog"><button aria-label="Fechar" class="heart-close" id="heart-close" type="button">×</button><h2>Seu coração em oração</h2><p>Obrigado por fazer parte desta corrente de intercessão!</p><canvas aria-label="Cartão de oração do dia" height="1350" id="heart-canvas" width="1080"></canvas><div class="heart-actions"><button id="heart-share" type="button">Compartilhar imagem</button><button id="heart-download" type="button">Salvar imagem para Instagram ou Facebook</button></div><small>Para publicar no Instagram, salve a imagem e selecione-a no aplicativo. No celular, “Compartilhar imagem” pode abrir os aplicativos disponíveis.</small></div></div></body></html>
