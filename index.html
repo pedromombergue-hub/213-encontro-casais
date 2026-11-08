@@ -310,6 +310,8 @@ async function atualizarFamilias(){
   const registros=await r.json();
   if(Array.isArray(registros)&&registros.length){
    familias=registros.map(x=>({nome:x.nome,arquivo:x.arquivo}));
+   const botaoOutra=document.getElementById('familias-audio-proxima');
+   if(botaoOutra&&!document.getElementById('familias-audio-painel').hidden)botaoOutra.hidden=familias.length<2;
   }
  }catch(e){console.warn('Catálogo de áudios indisponível; usando áudio de reserva.');}
 }
@@ -320,18 +322,56 @@ const painel=document.getElementById('familias-audio-painel');
 const nome=document.getElementById('familias-audio-nome');
 const player=document.getElementById('familias-audio-player');
 const erro=document.getElementById('familias-audio-erro');
-let anterior=-1;
+// Fila aleatória sem repetição: cada gravação é apresentada uma vez por rodada.
+let fila=[];
+let ultimoArquivo=null;
+let assinaturaCatalogo='';
+function embaralhar(lista){
+  const a=[...lista];
+  for(let i=a.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [a[i],a[j]]=[a[j],a[i]];
+  }
+  return a;
+}
+function catalogoAtual(){
+  // O arquivo identifica a gravação; duplicatas de cadastro não ganham sorteios extras.
+  return [...new Map(familias.filter(x=>x&&x.arquivo).map(x=>[x.arquivo,x])).values()];
+}
+function proximoAudio(){
+  const catalogo=catalogoAtual();
+  if(!catalogo.length)return null;
+  const arquivos=new Set(catalogo.map(x=>x.arquivo));
+  const assinatura=[...arquivos].sort().join('\n');
+  if(assinatura!==assinaturaCatalogo){
+    // Se o administrador incluiu ou excluiu áudios, atualiza a fila preservando os pendentes.
+    fila=fila.filter(arquivo=>arquivos.has(arquivo));
+    const pendentes=new Set(fila);
+    const novos=catalogo.map(x=>x.arquivo).filter(arquivo=>!pendentes.has(arquivo)&&arquivo!==ultimoArquivo);
+    fila=[...fila,...embaralhar(novos)];
+    assinaturaCatalogo=assinatura;
+  }
+  if(!fila.length){
+    fila=embaralhar(catalogo.map(x=>x.arquivo));
+    // Impede que o último da rodada anterior seja o primeiro da próxima.
+    if(fila.length>1&&fila[0]===ultimoArquivo){
+      const j=1+Math.floor(Math.random()*(fila.length-1));
+      [fila[0],fila[j]]=[fila[j],fila[0]];
+    }
+  }
+  const arquivo=fila.shift();
+  ultimoArquivo=arquivo;
+  return catalogo.find(x=>x.arquivo===arquivo);
+}
 function escolher(){
-  if(!familias.length)return;
-  let i=Math.floor(Math.random()*familias.length);
-  if(familias.length>1 && i===anterior)i=(i+1+Math.floor(Math.random()*(familias.length-1)))%familias.length;
-  anterior=i;
+  const escolhido=proximoAudio();
+  if(!escolhido)return;
   player.pause();player.removeAttribute('src');player.load();
-  nome.textContent='Oração conduzida por '+familias[i].nome;
-  player.src=familias[i].arquivo;player.load();
+  nome.textContent='Oração conduzida por '+escolhido.nome;
+  player.src=escolhido.arquivo;player.load();
   painel.hidden=false;erro.hidden=true;iniciar.hidden=true;
-  proxima.hidden=familias.length<2;
-  // Não inicia automaticamente: o visitante aciona o play no próprio reprodutor.
+  proxima.hidden=catalogoAtual().length<2;
+  // Reprodução voluntária: o visitante toca no play do reprodutor.
 }
 iniciar.addEventListener('click',escolher);
 proxima.addEventListener('click',escolher);
