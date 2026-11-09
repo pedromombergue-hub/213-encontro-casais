@@ -380,4 +380,35 @@ iniciar.addEventListener('click',escolher);
 proxima.addEventListener('click',escolher);
 player.addEventListener('error',function(){if(player.getAttribute('src'))erro.hidden=false;});
 })();
-</script></body></html>
+</script>
+<script>
+/* Estatísticas anônimas do 213º ECNSJ. Nenhum nome, IP ou identificador permanente é enviado. */
+(function(){
+ 'use strict';
+ const endpoint='https://tmbfnzgqzraceecwcjmc.supabase.co/rest/v1/rpc/registrar_evento_213';
+ const key='sb_publishable_KukvWR5_dlzRfFW7ZD033Q__1pUiq0M';
+ let sessao;
+ try {sessao=sessionStorage.getItem('ecnsj213-sessao');if(!sessao){sessao=crypto.randomUUID();sessionStorage.setItem('ecnsj213-sessao',sessao)}}catch(e){sessao=crypto.randomUUID()}
+ function registrar(tipo,detalhe=''){
+  try{fetch(endpoint,{method:'POST',keepalive:true,headers:{'Content-Type':'application/json','apikey':key},body:JSON.stringify({p_tipo:tipo,p_detalhe:String(detalhe).slice(0,120),p_sessao:sessao})}).catch(()=>{});}catch(e){}
+ }
+ window.estatistica213=registrar;
+ registrar('pagina');
+ const player=document.getElementById('familias-audio-player');
+ if(player)player.addEventListener('play',()=>{
+  const titulo=document.getElementById('familias-audio-nome');
+  registrar('audio_reproduzido',titulo?titulo.textContent.replace(/^Oração conduzida por /,''):'');
+ });
+ document.addEventListener('click',function(e){
+  const t=e.target.closest('button,a');if(!t)return;
+  if(t.id==='familias-audio-iniciar')registrar('audio_iniciar');
+  if(t.id==='familias-audio-proxima')registrar('audio_proximo');
+  if(t.id==='heart-share')registrar('cartao_compartilhar');
+  if(t.id==='heart-download')registrar('cartao_salvar');
+  if(t.closest('.agenda-nsj')&&t.tagName==='A')registrar('agenda_link',t.textContent.trim().slice(0,80));
+ });
+ const prayer=document.getElementById('prayer-feedback');
+ if(prayer){let done=false;new MutationObserver(()=>{if(!done&&prayer.textContent.includes('Sua participação foi somada')){done=true;registrar('oracao_registrada')}}).observe(prayer,{childList:true,characterData:true,subtree:true})}
+})();
+</script>
+</body></html>
