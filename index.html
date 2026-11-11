@@ -306,6 +306,7 @@ function heartBlob() {
 const SUPA_URL='https://tmbfnzgqzraceecwcjmc.supabase.co';
 const SUPA_KEY='sb_publishable_KukvWR5_dlzRfFW7ZD033Q__1pUiq0M';
 let familias=[{nome:'Pedro e Mara',arquivo:'audios/Pedro_e_Mara_Oracao_213_ECNSJ.mp3'}];
+let catalogoCarregado=false;
 async function atualizarFamilias(){
  try{
   const r=await fetch(SUPA_URL+'/rest/v1/audios_213?select=nome,arquivo&publicado=eq.true&order=criado_em.asc',{headers:{apikey:SUPA_KEY,Authorization:'Bearer '+SUPA_KEY}});
@@ -317,8 +318,9 @@ async function atualizarFamilias(){
    if(botaoOutra&&!document.getElementById('familias-audio-painel').hidden)botaoOutra.hidden=familias.length<2;
   }
  }catch(e){console.warn('Catálogo de áudios indisponível; usando áudio de reserva.');}
+ finally{catalogoCarregado=true;}
 }
-atualizarFamilias();
+const carregamentoCatalogo=atualizarFamilias();
 const iniciar=document.getElementById('familias-audio-iniciar');
 const proxima=document.getElementById('familias-audio-proxima');
 const painel=document.getElementById('familias-audio-painel');
@@ -326,7 +328,7 @@ const nome=document.getElementById('familias-audio-nome');
 const player=document.getElementById('familias-audio-player');
 const erro=document.getElementById('familias-audio-erro');
 // Rodadas persistidas neste navegador. Não confundir ofertas com reproduções.
-const FILA_CHAVE='ecnsj213-fila-v2';
+const FILA_CHAVE='ecnsj213-fila-v3';
 let fila=[],vistos=[],ultimoArquivo=null,assinaturaCatalogo='';
 try {const salvo=JSON.parse(localStorage.getItem(FILA_CHAVE)||'{}');
  if(Array.isArray(salvo.fila))fila=salvo.fila.filter(x=>typeof x==='string');
@@ -361,7 +363,14 @@ function registrarOferta(escolhido){
   fetch(endpoint,{method:'POST',keepalive:true,headers:{'Content-Type':'application/json',apikey:SUPA_KEY},body:JSON.stringify({p_nome:escolhido.nome,p_arquivo:escolhido.arquivo,p_sessao:sessao})}).catch(()=>{});
  }catch(e){}
 }
-function escolher(){
+let escolhendo=false;
+async function escolher(){
+  if(escolhendo)return;
+  escolhendo=true;
+  iniciar.disabled=true;proxima.disabled=true;
+  try{
+  // Aguarda o catálogo remoto antes de consumir a fila; evita sorteio com catálogo parcial.
+  await carregamentoCatalogo;
   const escolhido=proximoAudio();
   if(!escolhido)return;
   player.pause();player.removeAttribute('src');player.load();
@@ -371,6 +380,7 @@ function escolher(){
   proxima.hidden=catalogoAtual().length<2;
   registrarOferta(escolhido);
   // Reprodução voluntária: o visitante toca no play do reprodutor.
+  }finally{escolhendo=false;iniciar.disabled=false;proxima.disabled=false;}
 }
 iniciar.addEventListener('click',escolher);
 proxima.addEventListener('click',escolher);
