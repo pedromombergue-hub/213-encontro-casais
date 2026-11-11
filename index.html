@@ -325,46 +325,41 @@ const painel=document.getElementById('familias-audio-painel');
 const nome=document.getElementById('familias-audio-nome');
 const player=document.getElementById('familias-audio-player');
 const erro=document.getElementById('familias-audio-erro');
-// Fila aleatória sem repetição: cada gravação é apresentada uma vez por rodada.
-let fila=[];
-let ultimoArquivo=null;
-let assinaturaCatalogo='';
-function embaralhar(lista){
-  const a=[...lista];
-  for(let i=a.length-1;i>0;i--){
-    const j=Math.floor(Math.random()*(i+1));
-    [a[i],a[j]]=[a[j],a[i]];
-  }
-  return a;
-}
-function catalogoAtual(){
-  // O arquivo identifica a gravação; duplicatas de cadastro não ganham sorteios extras.
-  return [...new Map(familias.filter(x=>x&&x.arquivo).map(x=>[x.arquivo,x])).values()];
-}
+// Rodadas persistidas neste navegador. Não confundir ofertas com reproduções.
+const FILA_CHAVE='ecnsj213-fila-v2';
+let fila=[],vistos=[],ultimoArquivo=null,assinaturaCatalogo='';
+try {const salvo=JSON.parse(localStorage.getItem(FILA_CHAVE)||'{}');
+ if(Array.isArray(salvo.fila))fila=salvo.fila.filter(x=>typeof x==='string');
+ if(Array.isArray(salvo.vistos))vistos=salvo.vistos.filter(x=>typeof x==='string');
+ if(typeof salvo.ultimoArquivo==='string')ultimoArquivo=salvo.ultimoArquivo;
+}catch(e){}
+function guardarFila(){try{localStorage.setItem(FILA_CHAVE,JSON.stringify({fila,vistos,ultimoArquivo}));}catch(e){}}
+function embaralhar(lista){const a=[...lista];for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+function catalogoAtual(){return [...new Map(familias.filter(x=>x&&x.arquivo).map(x=>[x.arquivo,x])).values()];}
 function proximoAudio(){
-  const catalogo=catalogoAtual();
-  if(!catalogo.length)return null;
-  const arquivos=new Set(catalogo.map(x=>x.arquivo));
-  const assinatura=[...arquivos].sort().join('\n');
-  if(assinatura!==assinaturaCatalogo){
-    // Se o administrador incluiu ou excluiu áudios, atualiza a fila preservando os pendentes.
-    fila=fila.filter(arquivo=>arquivos.has(arquivo));
-    const pendentes=new Set(fila);
-    const novos=catalogo.map(x=>x.arquivo).filter(arquivo=>!pendentes.has(arquivo)&&arquivo!==ultimoArquivo);
-    fila=[...fila,...embaralhar(novos)];
-    assinaturaCatalogo=assinatura;
-  }
-  if(!fila.length){
-    fila=embaralhar(catalogo.map(x=>x.arquivo));
-    // Impede que o último da rodada anterior seja o primeiro da próxima.
-    if(fila.length>1&&fila[0]===ultimoArquivo){
-      const j=1+Math.floor(Math.random()*(fila.length-1));
-      [fila[0],fila[j]]=[fila[j],fila[0]];
-    }
-  }
-  const arquivo=fila.shift();
-  ultimoArquivo=arquivo;
-  return catalogo.find(x=>x.arquivo===arquivo);
+ const catalogo=catalogoAtual();if(!catalogo.length)return null;
+ const arquivos=new Set(catalogo.map(x=>x.arquivo));
+ const assinatura=[...arquivos].sort().join('\n');
+ if(assinatura!==assinaturaCatalogo){
+  vistos=[...new Set(vistos)].filter(x=>arquivos.has(x));
+  fila=[...new Set(fila)].filter(x=>arquivos.has(x)&&!vistos.includes(x));
+  // Inclusões entram na rodada atual; exclusões deixam de ser elegíveis.
+  const novos=catalogo.map(x=>x.arquivo).filter(x=>!vistos.includes(x)&&!fila.includes(x));
+  fila.push(...embaralhar(novos));assinaturaCatalogo=assinatura;
+ }
+ if(!fila.length){vistos=[];fila=embaralhar([...arquivos]);
+  if(fila.length>1&&fila[0]===ultimoArquivo){const j=1+Math.floor(Math.random()*(fila.length-1));[fila[0],fila[j]]=[fila[j],fila[0]];}
+ }
+ const arquivo=fila.shift();vistos.push(arquivo);ultimoArquivo=arquivo;guardarFila();
+ return catalogo.find(x=>x.arquivo===arquivo);
+}
+function registrarOferta(escolhido){
+ // Registro independente: contabiliza a apresentação, mesmo sem clicar em Play.
+ try{const endpoint=SUPA_URL+'/rest/v1/rpc/registrar_oferta_audio_213';
+  let sessao=sessionStorage.getItem('ecnsj213-sessao');
+  if(!sessao){sessao=crypto.randomUUID();sessionStorage.setItem('ecnsj213-sessao',sessao);}
+  fetch(endpoint,{method:'POST',keepalive:true,headers:{'Content-Type':'application/json',apikey:SUPA_KEY},body:JSON.stringify({p_nome:escolhido.nome,p_arquivo:escolhido.arquivo,p_sessao:sessao})}).catch(()=>{});
+ }catch(e){}
 }
 function escolher(){
   const escolhido=proximoAudio();
@@ -374,6 +369,7 @@ function escolher(){
   player.src=escolhido.arquivo;player.load();
   painel.hidden=false;erro.hidden=true;iniciar.hidden=true;
   proxima.hidden=catalogoAtual().length<2;
+  registrarOferta(escolhido);
   // Reprodução voluntária: o visitante toca no play do reprodutor.
 }
 iniciar.addEventListener('click',escolher);
