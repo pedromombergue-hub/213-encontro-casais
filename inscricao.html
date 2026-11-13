@@ -227,7 +227,7 @@ function pendenciasFichaV7213(ficha, situacao, parecer){
 }
 
 function mostrarPendenciasV7213(erros){
- const el=document.getElementById("pendencias-v7-213");if(!el)return;el.hidden=false;el.classList.toggle("ok",erros.length===0);el.innerHTML=erros.length?"<details open><summary>Ficha salva · "+erros.length+" pendência(s) identificada(s)</summary><ul>"+erros.map(x=>"<li>"+esc(x)+"</li>").join("")+"</ul></details>":"<strong>Ficha salva e conferida: nenhum campo pendente na validação V7. A classificação da vaga ainda depende de processamento administrativo.</strong>";
+ const el=document.getElementById("pendencias-v7-213");if(!el)return;el.hidden=false;el.classList.toggle("ok",erros.length===0);el.innerHTML=erros.length?"<details open><summary>Ficha salva · "+erros.length+" pendência(s) identificada(s)</summary><ul>"+erros.map(x=>"<li>"+esc(x)+"</li>").join("")+"</ul></details>":"<strong>Ficha salva e conferida: nenhum campo pendente na validação V7. A situação da vaga foi classificada automaticamente pelo Supabase.</strong>";
 }
 async function salvarSecretaria213(completa){
  if(!window.secretariaMode213||!secretariaClient213||!secretariaUser213)return avisoSecretaria213('Acesso administrativo não autorizado.',true);
@@ -267,7 +267,15 @@ async function salvarSecretaria213(completa){
    const {error:e}=await secretariaClient213.from('inscricoes_encontros_213').update({origem:document.getElementById('origem-secretaria213').value,situacao_matrimonial:situacao}).eq('id',secretariaInscricaoId213);
    if(e)throw e;
   }
-  alterado213=false;avisoSecretaria213('Ficha salva com sucesso! Situação: Em complementação. Veja o resultado da conferência abaixo.');mostrarPendenciasV7213(pendenciasFichaV7213({...ficha,nome_dele:nomeDele,nome_dela:nomeDela},situacao,situacao==='aptos'?'pendente':null));
+  // A classificação ocorre no banco, nunca pela contagem local no navegador.
+  const {data:resultado,error:erroClass}=await secretariaClient213.rpc('classificar_inscricao_213',{p_inscricao_id:secretariaInscricaoId213});
+  if(erroClass)throw new Error('Ficha gravada, mas a classificação automática não foi concluída: '+erroClass.message+'; abra a inscrição no painel para verificar.');
+  alterado213=false;
+  const faltas=(resultado?.pendencias||[]);
+  const rotulos={confirmada:'Confirmada — vaga garantida',lista_espera:'Lista de espera',em_complementacao:'Em complementação'};
+  avisoSecretaria213('Ficha salva. Situação automática: '+(rotulos[resultado?.status]||resultado?.status||'em análise')+(resultado?.prioridade?' · Prioridade nº '+resultado.prioridade:'')+'.');
+  mostrarPendenciasV7213(faltas);
+  
  }catch(e){avisoSecretaria213(e.message||'Erro ao salvar. Confira a conexão.',true);}
  finally{salvando213=false;botaoA.disabled=false;}
 }
