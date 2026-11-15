@@ -2,7 +2,7 @@
 <p><a href="admin-permissoes.html">Gerir acessos</a></p>
 <p><a href="admin-agenda.html">Agenda do Santo Terço, reuniões e recessos</a></p>
 <p><a href="admin-estatisticas.html">Estatísticas</a></p>
-<p><a href="painel_secretaria_213.html">Painel da Secretaria</a></p>
+<p><a href="painel_secretaria_213.html">Painel da Secretaria</a></p><p><a href="admin-capacidade.html#inscricoes-online">Vagas e inscrições online</a></p>
 </nav><h2>Áudios de oração</h2><p id="usuario"></p><button id="sair">Sair</button><h2>Nova gravação</h2><label>Nome da família<input id="nome" maxlength="120" placeholder="Ex.: Dona Valdete"></label><label>Arquivo MP3, M4A ou WAV<input id="arquivo" type="file" accept="audio/mpeg,audio/mp3,audio/mp4,audio/x-m4a,audio/wav,.mp3,.m4a,.wav"></label><button id="enviar">Publicar gravação</button><h2>Gravações publicadas</h2><ul id="lista"></ul></section><p id="status" role="status"></p><small>Somente pessoas autorizadas podem enviar, publicar ou excluir gravações. Peça consentimento antes de publicar a voz de alguém.</small></main><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.95.3/dist/umd/supabase.min.js"></script><script>
 const client=supabase.createClient('https://tmbfnzgqzraceecwcjmc.supabase.co','sb_publishable_KukvWR5_dlzRfFW7ZD033Q__1pUiq0M');
 const $=id=>document.getElementById(id),status=m=>$('status').textContent=m;
