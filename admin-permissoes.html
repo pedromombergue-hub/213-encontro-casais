@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Gestão de acessos | Núcleo São João</title>
+  <style>
+    *{box-sizing:border-box}
+    body{margin:0;background:#f5f0e5;color:#12365d;font:16px/1.5 Arial,sans-serif}
+    main{max-width:760px;margin:28px auto;padding:0 16px 24px}
+    section{background:#fff;border:1px solid #e9dfce;border-radius:14px;padding:20px;margin:16px 0}
+    h1,h2{line-height:1.2}h1{margin:.4em 0}h2{font-size:1.18rem;margin:0 0 14px}
+    label{display:block;font-weight:700;margin-top:12px}
+    input,select{width:100%;font:inherit;padding:10px 12px;border:1px solid #8b9aa7;border-radius:8px;color:inherit;background:#fff}
+    button{font:700 15px Arial,sans-serif;min-height:44px;padding:10px 15px;border:1px solid #12365d;border-radius:8px;background:#12365d;color:#fff;cursor:pointer;margin-top:14px}
+    button.secondary{background:#fff;color:#12365d}
+    button:disabled{opacity:.55;cursor:wait}
+    a{color:#12365d}a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #916925;outline-offset:2px}
+    .toolbar,.roles{display:flex;align-items:center;flex-wrap:wrap;gap:8px 16px}
+    .toolbar{justify-content:space-between}.toolbar button{margin:0}
+    .entry{padding:12px 0;border-top:1px solid #e9dfce;overflow-wrap:anywhere}
+    .roles button{margin:5px 0 0;font-size:.85rem}
+    .hint{font-size:.9rem;color:#415771}
+    #status{min-height:1.5em}#status[data-error="true"]{color:#912b24}
+    [hidden]{display:none!important}
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Gestão de acessos</h1>
+    <div class="toolbar">
+      <a href="admin.html">Voltar à Administração</a>
+      <button type="button" id="logout" class="secondary" hidden>Sair</button>
+    </div>
+  </header>
+  <p id="status" role="status">Verificando sessão…</p>
+  <section id="login" hidden>
+    <h2>Entrar como administrador</h2>
+    <form id="login-form">
+      <label for="email">E-mail</label>
+      <input type="email" id="email" autocomplete="username" required>
+      <label for="password">Senha</label>
+      <input type="password" id="password" autocomplete="current-password" required>
+      <button>Entrar</button>
+    </form>
+  </section>
+  <section id="grant" hidden>
+    <h2>Conceder acesso</h2>
+    <form id="grant-form">
+      <label for="account">E-mail da conta</label>
+      <input type="email" id="account" required>
+      <label for="role">Perfil</label>
+      <select id="role" aria-describedby="role-description">
+        <option value="secretaria">Secretaria</option>
+        <option value="terco">Equipe do Terço</option>
+        <option value="administracao">Administração</option>
+      </select>
+      <p class="hint" id="role-description"></p>
+      <button>Conceder acesso</button>
+    </form>
+    <p class="hint">Use o e-mail de uma conta já cadastrada no Supabase Auth. Uma pessoa pode ter mais de um perfil.</p>
+  </section>
+  <section id="access" hidden aria-labelledby="access-title">
+    <h2 id="access-title">Acessos concedidos</h2>
+    <div id="accounts"></div>
+  </section>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.95.3/dist/umd/supabase.min.js"></script>
+<script>
+const client=window.supabase.createClient('https://tmbfnzgqzraceecwcjmc.supabase.co','sb_publishable_KukvWR5_dlzRfFW7ZD033Q__1pUiq0M');
+const el=id=>document.getElementById(id);
+const perfis={
+  secretaria:['Secretaria','Inscrições do 213º Encontro e agenda das reuniões.'],
+  terco:['Equipe do Terço','Agenda do Santo Terço.'],
+  administracao:['Administração','Acesso completo, incluindo a gestão de permissões.']
+};
+let usuario=null;
+let processando=false;
+let versao=0;
+
+function mensagem(texto,erro=false){
+  el('status').textContent=texto;
+  el('status').dataset.error=String(erro);
+}
+
+function mostrarContas(contas){
+  const lista=el('accounts');
+  lista.replaceChildren();
+  if(!contas.length)lista.textContent='Nenhuma conta com acesso.';
+  for(const conta of contas){
+    const painel=document.createElement('div');
+    painel.className='entry';
+    const titulo=document.createElement('strong');
+    titulo.textContent=conta.email||'Conta sem e-mail';
+    painel.append(titulo);
+    const botoes=document.createElement('div');
+    botoes.className='roles';
+    for(const [perfil,[nome]] of Object.entries(perfis)){
+      if(!conta[perfil])continue;
+      if(!conta.email||(perfil==='administracao'&&conta.user_id===usuario.id)){
+        const etiqueta=document.createElement('span');
+        etiqueta.textContent=nome+(conta.user_id===usuario.id&&perfil==='administracao'?' (sua conta)':'');
+        botoes.append(etiqueta);
+        continue;
+      }
+      const botao=document.createElement('button');
+      botao.type='button';
+      botao.className='secondary';
+      botao.textContent='Retirar '+nome;
+      botao.setAttribute('aria-label','Retirar '+nome+' de '+conta.email);
+      botao.onclick=()=>alterar(conta.email,perfil,false,botao);
+      botoes.append(botao);
+    }
+    painel.append(botoes);
+    lista.append(painel);
+  }
+}
+
+async function atualizar(){
+  const chamada=++versao;
+  const {data:{session},error:sessaoErro}=await client.auth.getSession();
+  if(chamada!==versao)return;
+  usuario=session?.user||null;
+  el('logout').hidden=!usuario;
+  el('login').hidden=!!usuario;
+  el('grant').hidden=true;
+  el('access').hidden=true;
+  el('accounts').replaceChildren();
+  if(!usuario){
+    mensagem(sessaoErro?'Não foi possível verificar a sessão. Entre novamente.':'',!!sessaoErro);
+    return false;
+  }
+  const {data,error}=await client.rpc('listar_permissoes_213');
+  if(chamada!==versao)return;
+  if(error){
+    mensagem(error.code==='42501'?'Somente administradores podem gerir acessos.':'Não foi possível carregar os acessos. Atualize a página para tentar novamente.',true);
+    return false;
+  }
+  el('grant').hidden=false;
+  el('access').hidden=false;
+  mostrarContas(data);
+  mensagem('');
+  return true;
+}
+
+async function alterar(email,perfil,habilitar,botao){
+  if(processando)return;
+  const nome=perfis[perfil][0];
+  if(!confirm((habilitar?'Conceder ':'Retirar ')+nome+' para '+email+'?'))return;
+  processando=true;
+  botao.disabled=true;
+  try{
+    const {data,error}=await client.rpc('alterar_permissao_213',{p_email:email,p_perfil:perfil,p_habilitar:habilitar});
+    if(error){mensagem(error.message,true);return;}
+    if(await atualizar()){
+      mensagem(data?(habilitar?'Acesso concedido.':'Acesso retirado.'):'A conta já estava com esse estado de acesso.');
+    }
+  }catch{
+    mensagem('Não foi possível completar a operação. Atualize a página para conferir o estado do acesso.',true);
+  }finally{
+    processando=false;
+    botao.disabled=false;
+  }
+}
+
+el('login-form').onsubmit=async event=>{
+  event.preventDefault();
+  const botao=event.submitter;
+  botao.disabled=true;
+  try{
+    const {error}=await client.auth.signInWithPassword({email:el('email').value.trim(),password:el('password').value});
+    el('password').value='';
+    if(error){mensagem(error.message,true);return;}
+    await atualizar();
+  }finally{botao.disabled=false;}
+};
+el('logout').onclick=async()=>{
+  const {error}=await client.auth.signOut({scope:'local'});
+  if(error){mensagem(error.message,true);return;}
+  await atualizar();
+};
+el('grant-form').onsubmit=event=>{
+  event.preventDefault();
+  alterar(el('account').value.trim(),el('role').value,true,event.submitter);
+};
+el('role').onchange=()=>el('role-description').textContent=perfis[el('role').value][1];
+el('role').onchange();
+atualizar();
+</script>
+</body>
+</html>
