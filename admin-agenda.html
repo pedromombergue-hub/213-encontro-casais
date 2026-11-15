@@ -21,7 +21,7 @@ async function check(){
  if(versao!==menuAgendaVersao)return;
  if(!error&&acesso){
   abasPermitidas=['terco','reuniao','recesso'].filter(aba=>acesso.administracao||
-   (aba==='terco'&&acesso.terco)||(aba==='reuniao'&&acesso.secretaria));
+   (aba==='terco'&&acesso.terco)||((aba==='reuniao'||aba==='recesso')&&acesso.secretaria));
  }
  authorized=abasPermitidas.length>0;
  $('login').hidden=authorized;
