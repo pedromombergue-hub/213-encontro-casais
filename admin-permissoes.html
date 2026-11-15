@@ -30,7 +30,7 @@
   <header>
     <h1>Gestão de acessos</h1>
     <div class="toolbar">
-      <a href="admin.html">Voltar à Administração</a>
+      <a id="admin-back" href="admin.html" hidden>Voltar à Administração</a>
       <button type="button" id="logout" class="secondary" hidden>Sair</button>
     </div>
   </header>
@@ -128,6 +128,7 @@ async function atualizar(){
   usuario=session?.user||null;
   el('logout').hidden=!usuario;
   el('login').hidden=!!usuario;
+  el('admin-back').hidden=true;
   el('grant').hidden=true;
   el('access').hidden=true;
   el('accounts').replaceChildren();
@@ -141,6 +142,7 @@ async function atualizar(){
     mensagem(error.code==='42501'?'Somente administradores podem gerir acessos.':'Não foi possível carregar os acessos. Atualize a página para tentar novamente.',true);
     return false;
   }
+  el('admin-back').hidden=false;
   el('grant').hidden=false;
   el('access').hidden=false;
   mostrarContas(data);
