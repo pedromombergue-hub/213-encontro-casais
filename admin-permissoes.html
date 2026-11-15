@@ -46,7 +46,7 @@
     </form>
   </section>
   <section id="grant" hidden>
-    <h2>Conceder acesso</h2>
+    <h2>Convidar ou conceder acesso</h2>
     <form id="grant-form">
       <label for="account">E-mail da conta</label>
       <input type="email" id="account" required>
@@ -57,9 +57,12 @@
         <option value="administracao">Administração</option>
       </select>
       <p class="hint" id="role-description"></p>
-      <button>Conceder acesso</button>
+      <div class="roles">
+        <button type="submit" value="conceder">Conceder acesso</button>
+        <button type="submit" value="convidar" class="secondary">Convidar novo usuário</button>
+      </div>
     </form>
-    <p class="hint">Use o e-mail de uma conta já cadastrada no Supabase Auth. Uma pessoa pode ter mais de um perfil.</p>
+    <p class="hint">Para uma conta existente, use Conceder acesso. Para uma pessoa nova, envie um convite para ela criar a senha.</p>
   </section>
   <section id="access" hidden aria-labelledby="access-title">
     <h2 id="access-title">Acessos concedidos</h2>
@@ -68,7 +71,8 @@
 </main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.95.3/dist/umd/supabase.min.js"></script>
 <script>
-const client=window.supabase.createClient('https://tmbfnzgqzraceecwcjmc.supabase.co','sb_publishable_KukvWR5_dlzRfFW7ZD033Q__1pUiq0M');
+const urlSupabase='https://tmbfnzgqzraceecwcjmc.supabase.co';
+const client=window.supabase.createClient(urlSupabase,'sb_publishable_KukvWR5_dlzRfFW7ZD033Q__1pUiq0M');
 const el=id=>document.getElementById(id);
 const perfis={
   secretaria:['Secretaria','Inscrições do 213º Encontro e agenda das reuniões.'],
@@ -180,9 +184,45 @@ el('logout').onclick=async()=>{
   if(error){mensagem(error.message,true);return;}
   await atualizar();
 };
+async function convidar(email,perfil,botao){
+  if(processando)return;
+  const nome=perfis[perfil][0];
+  if(!confirm('Enviar convite para '+email+' com o perfil '+nome+'?'))return;
+  processando=true;
+  botao.disabled=true;
+  mensagem('Enviando convite…');
+  try{
+    const {data:{session}}=await client.auth.getSession();
+    if(!session){mensagem('Sessão encerrada. Entre novamente.',true);return;}
+    const resposta=await fetch(urlSupabase+'/functions/v1/convidar-usuario-213',{
+      method:'POST',
+      headers:{Authorization:'Bearer '+session.access_token,'Content-Type':'application/json'},
+      body:JSON.stringify({email,perfil})
+    });
+    const resultado=await resposta.json();
+    if(!resposta.ok){mensagem(resultado.erro||'O envio não foi confirmado.',true);return;}
+    if(await atualizar()){
+      if(resultado.enviado&&resultado.acesso_concedido){
+        el('account').value='';
+        mensagem('Convite enviado e perfil concedido.');
+      }else{
+        mensagem(resultado.aviso||'Confira o estado da conta antes de tentar novamente.',true);
+      }
+    }
+  }catch{
+    mensagem('Não foi possível confirmar o envio. Confira a lista de acessos antes de tentar novamente.',true);
+  }finally{
+    processando=false;
+    botao.disabled=false;
+  }
+}
+
 el('grant-form').onsubmit=event=>{
   event.preventDefault();
-  alterar(el('account').value.trim(),el('role').value,true,event.submitter);
+  const email=el('account').value.trim();
+  const perfil=el('role').value;
+  if(event.submitter.value==='convidar')convidar(email,perfil,event.submitter);
+  else alterar(email,perfil,true,event.submitter);
 };
 el('role').onchange=()=>el('role-description').textContent=perfis[el('role').value][1];
 el('role').onchange();

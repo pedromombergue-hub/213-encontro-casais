@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>Aceitar convite | Núcleo São João</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#f5f0e5;color:#12365d;font:16px/1.5 Arial,sans-serif}
+main{max-width:520px;margin:36px auto;padding:0 16px}
+section{padding:24px;background:#fff;border:1px solid #e9dfce;border-radius:14px}
+h1{line-height:1.2;margin-top:0}
+label{display:block;font-weight:700;margin-top:12px}
+input{width:100%;font:inherit;padding:10px 12px;border:1px solid #8092a2;border-radius:8px}
+button{font:700 16px Arial,sans-serif;min-height:44px;padding:10px 16px;margin-top:16px;border:0;border-radius:8px;background:#12365d;color:#fff;cursor:pointer}
+button:disabled{opacity:.6}
+a{color:#12365d}a:focus-visible,button:focus-visible,input:focus-visible{outline:3px solid #916925;outline-offset:2px}
+#status[data-error="true"]{color:#912b24}
+</style>
+</head>
+<body>
+<main>
+<section>
+  <h1>Aceitar convite</h1>
+  <p id="status" role="status">Conferindo o link do convite…</p>
+  <form id="senha" hidden>
+    <label for="nova">Nova senha</label>
+    <input id="nova" type="password" autocomplete="new-password" minlength="8" required>
+    <label for="confirmar">Confirme a senha</label>
+    <input id="confirmar" type="password" autocomplete="new-password" minlength="8" required>
+    <p>Use pelo menos oito caracteres.</p>
+    <button>Salvar senha</button>
+  </form>
+  <nav id="destinos" aria-label="Painéis disponíveis" hidden></nav>
+</section>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.95.3/dist/umd/supabase.min.js"></script>
+<script>
+const el=id=>document.getElementById(id);
+function mensagem(texto,erro=false){
+  el('status').textContent=texto;
+  el('status').dataset.error=String(erro);
+}
+async function aceitar(){
+  const fragmento=new URLSearchParams(location.hash.slice(1));
+  if(fragmento.get('type')!=='invite'||!fragmento.has('access_token')||!fragmento.has('refresh_token')){
+    mensagem('Abra o link recebido por e-mail. Se ele tiver expirado, contate a Administração.',true);
+    return;
+  }
+  const client=window.supabase.createClient('https://tmbfnzgqzraceecwcjmc.supabase.co',
+    'sb_publishable_KukvWR5_dlzRfFW7ZD033Q__1pUiq0M',
+    {auth:{detectSessionInUrl:false,persistSession:false,autoRefreshToken:false,storageKey:'nsj-213-aceitar-convite'}});
+  history.replaceState(null,'',location.pathname);
+  const {error}=await client.auth.setSession({
+    access_token:fragmento.get('access_token'),refresh_token:fragmento.get('refresh_token')
+  });
+  if(error){
+    mensagem('O link do convite está inválido ou expirado. Contate a Administração.',true);
+    return;
+  }
+  mensagem('Crie a senha que você usará para entrar no site.');
+  el('senha').hidden=false;
+  el('senha').onsubmit=async event=>{
+    event.preventDefault();
+    const botao=event.submitter;
+    const senha=el('nova').value;
+    if(senha!==el('confirmar').value){mensagem('As senhas precisam ser iguais.',true);return;}
+    botao.disabled=true;
+    try{
+      const {error:senhaErro}=await client.auth.updateUser({password:senha});
+      if(senhaErro){mensagem('Não foi possível salvar a senha. '+senhaErro.message,true);return;}
+      el('senha').reset();
+      el('senha').hidden=true;
+      mensagem('Senha salva. Entre com seu e-mail e a nova senha.');
+      const {data:perfis}=await client.rpc('meu_acesso_213');
+      const destinos=el('destinos');
+      const links=[
+        ['administracao','Administração','admin.html'],
+        ['secretaria','Painel da Secretaria','painel_secretaria_213.html'],
+        ['secretaria','Agenda de reuniões','admin-agenda.html?tipo=reuniao'],
+        ['terco','Agenda do Santo Terço','admin-agenda.html?tipo=terco']
+      ];
+      for(const [perfil,titulo,url] of links){
+        if(!perfis?.[perfil])continue;
+        const link=document.createElement('a');
+        link.href=url;
+        link.textContent=titulo;
+        const linha=document.createElement('p');
+        linha.append(link);
+        destinos.append(linha);
+      }
+      if(!destinos.childElementCount)destinos.textContent='Se o painel não estiver disponível, peça à Administração para conferir seu perfil.';
+      destinos.hidden=false;
+    }catch{
+      mensagem('Não foi possível confirmar a operação. Se a senha já foi salva, entre pelo painel indicado pela Administração.',true);
+    }finally{botao.disabled=false;}
+  };
+}
+aceitar().catch(()=>mensagem('Não foi possível conferir o convite. Abra novamente o link do e-mail.',true));
+</script>
+</body>
+</html>
