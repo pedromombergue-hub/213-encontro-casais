@@ -7,7 +7,8 @@
   <style>
     *{box-sizing:border-box}
     body{margin:0;background:#f5f0e5;color:#12365d;font:16px/1.5 Arial,sans-serif}
-    main{max-width:760px;margin:28px auto;padding:0 16px 24px}
+    main{max-width:1100px;margin:28px auto;padding:0 16px 24px}
+    #grant,#login{max-width:560px}
     section{background:#fff;border:1px solid #e9dfce;border-radius:14px;padding:20px;margin:16px 0}
     h1,h2{line-height:1.2}h1{margin:.4em 0}h2{font-size:1.18rem;margin:0 0 14px}
     label{display:block;font-weight:700;margin-top:12px}
@@ -16,11 +17,23 @@
     button.secondary{background:#fff;color:#12365d}
     button:disabled{opacity:.55;cursor:wait}
     a{color:#12365d}a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #916925;outline-offset:2px}
-    .toolbar,.roles{display:flex;align-items:center;flex-wrap:wrap;gap:8px 16px}
-    .toolbar{justify-content:space-between}.toolbar button{margin:0}
-    .entry{padding:12px 0;border-top:1px solid #e9dfce;overflow-wrap:anywhere}
-    .roles button{margin:5px 0 0;font-size:.85rem}
+    .toolbar{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px 16px}
+    .toolbar button{margin:0}
+    .profiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+    .profile{min-width:0;padding:0 12px 12px;border:1px solid var(--profile-border);border-radius:12px;background:var(--profile-bg)}
+    .profile[data-role="administracao"]{--profile-bg:#f0f4ff;--profile-border:#c6d4f3;--profile-ink:#203e85}
+    .profile[data-role="secretaria"]{--profile-bg:#eaf7f8;--profile-border:#b6dfe2;--profile-ink:#096068}
+    .profile[data-role="terco"]{--profile-bg:#fff5e6;--profile-border:#eed6af;--profile-ink:#79501e}
+    .profile h3{display:flex;align-items:center;gap:8px;margin:0;padding:13px 0;font-size:1rem;color:var(--profile-ink)}
+    .profile-icon{font-size:1.1rem;line-height:1}
+    .profile-list{list-style:none;margin:0;padding:0}
+    .entry{display:grid;gap:5px;padding:10px 11px;background:#fff;border:1px solid var(--profile-border);border-radius:8px}
+    .entry+.entry{margin-top:8px}
+    .entry strong{color:var(--profile-ink);overflow-wrap:anywhere}
+    .entry button{justify-self:start;margin:0;font-size:.85rem;min-height:44px}
     .hint{font-size:.9rem;color:#415771}
+    .profile .hint{margin:0}
+    @media(max-width:760px){.profiles{grid-template-columns:minmax(0,1fr)}}
     #status{min-height:1.5em}#status[data-error="true"]{color:#912b24}
     [hidden]{display:none!important}
   </style>
@@ -46,7 +59,7 @@
     </form>
   </section>
   <section id="grant" hidden>
-    <h2>Convidar ou conceder acesso</h2>
+    <h2>Convidar novo usuário</h2>
     <form id="grant-form">
       <label for="account">E-mail da conta</label>
       <input type="email" id="account" required>
@@ -54,19 +67,16 @@
       <select id="role" aria-describedby="role-description">
         <option value="secretaria">Secretaria</option>
         <option value="terco">Equipe do Terço</option>
-        <option value="administracao">Administração</option>
+        <option value="administracao">Administrador</option>
       </select>
       <p class="hint" id="role-description"></p>
-      <div class="roles">
-        <button type="submit" value="conceder">Conceder acesso</button>
-        <button type="submit" value="convidar" class="secondary">Convidar novo usuário</button>
-      </div>
+      <button type="submit">Convidar novo usuário</button>
     </form>
-    <p class="hint">Para uma conta existente, use Conceder acesso. Para uma pessoa nova, envie um convite para ela criar a senha.</p>
+    <p class="hint">Se o e-mail já tiver conta, o perfil selecionado será adicionado à conta existente.</p>
   </section>
   <section id="access" hidden aria-labelledby="access-title">
     <h2 id="access-title">Acessos concedidos</h2>
-    <div id="accounts"></div>
+    <div id="accounts" class="profiles"></div>
   </section>
 </main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.95.3/dist/umd/supabase.min.js"></script>
@@ -75,9 +85,9 @@ const urlSupabase='https://tmbfnzgqzraceecwcjmc.supabase.co';
 const client=window.supabase.createClient(urlSupabase,'sb_publishable_KukvWR5_dlzRfFW7ZD033Q__1pUiq0M');
 const el=id=>document.getElementById(id);
 const perfis={
-  secretaria:['Secretaria','Inscrições do 213º Encontro e agenda das reuniões.'],
-  terco:['Equipe do Terço','Agenda do Santo Terço.'],
-  administracao:['Administração','Acesso completo, incluindo a gestão de permissões.']
+  administracao:['Administrador','Acesso completo, incluindo a gestão de permissões.','🛡️'],
+  secretaria:['Secretaria','Inscrições do 213º Encontro, reuniões e recessos.','📋'],
+  terco:['Terço','Agenda do Santo Terço.','🙏']
 };
 let usuario=null;
 let processando=false;
@@ -89,35 +99,54 @@ function mensagem(texto,erro=false){
 }
 
 function mostrarContas(contas){
-  const lista=el('accounts');
-  lista.replaceChildren();
-  if(!contas.length)lista.textContent='Nenhuma conta com acesso.';
-  for(const conta of contas){
-    const painel=document.createElement('div');
-    painel.className='entry';
-    const titulo=document.createElement('strong');
-    titulo.textContent=conta.email||'Conta sem e-mail';
-    painel.append(titulo);
-    const botoes=document.createElement('div');
-    botoes.className='roles';
-    for(const [perfil,[nome]] of Object.entries(perfis)){
-      if(!conta[perfil])continue;
-      if(!conta.email||(perfil==='administracao'&&conta.user_id===usuario.id)){
-        const etiqueta=document.createElement('span');
-        etiqueta.textContent=nome+(conta.user_id===usuario.id&&perfil==='administracao'?' (sua conta)':'');
-        botoes.append(etiqueta);
-        continue;
+  const painel=el('accounts');
+  painel.replaceChildren();
+  for(const [perfil,[nome,,icone]] of Object.entries(perfis)){
+    const coluna=document.createElement('div');
+    coluna.className='profile';
+    coluna.dataset.role=perfil;
+    const titulo=document.createElement('h3');
+    const simbolo=document.createElement('span');
+    simbolo.className='profile-icon';
+    simbolo.setAttribute('aria-hidden','true');
+    simbolo.textContent=icone;
+    titulo.append(simbolo,nome);
+    coluna.append(titulo);
+
+    const membros=contas.filter(conta=>conta[perfil]);
+    if(!membros.length){
+      const vazio=document.createElement('p');
+      vazio.className='hint';
+      vazio.textContent='Nenhum acesso concedido.';
+      coluna.append(vazio);
+    }else{
+      const lista=document.createElement('ul');
+      lista.className='profile-list';
+      for(const conta of membros){
+        const linha=document.createElement('li');
+        linha.className='entry';
+        const email=document.createElement('strong');
+        email.textContent=conta.email||'Conta sem e-mail';
+        linha.append(email);
+        if(perfil==='administracao'&&conta.user_id===usuario.id){
+          const etiqueta=document.createElement('span');
+          etiqueta.className='hint';
+          etiqueta.textContent='Sua conta';
+          linha.append(etiqueta);
+        }else if(conta.email){
+          const botao=document.createElement('button');
+          botao.type='button';
+          botao.className='secondary';
+          botao.textContent='Retirar acesso';
+          botao.setAttribute('aria-label','Retirar o perfil '+nome+' de '+conta.email);
+          botao.onclick=()=>retirar(conta.email,perfil,botao);
+          linha.append(botao);
+        }
+        lista.append(linha);
       }
-      const botao=document.createElement('button');
-      botao.type='button';
-      botao.className='secondary';
-      botao.textContent='Retirar '+nome;
-      botao.setAttribute('aria-label','Retirar '+nome+' de '+conta.email);
-      botao.onclick=()=>alterar(conta.email,perfil,false,botao);
-      botoes.append(botao);
+      coluna.append(lista);
     }
-    painel.append(botoes);
-    lista.append(painel);
+    painel.append(coluna);
   }
 }
 
@@ -150,17 +179,17 @@ async function atualizar(){
   return true;
 }
 
-async function alterar(email,perfil,habilitar,botao){
+async function retirar(email,perfil,botao){
   if(processando)return;
   const nome=perfis[perfil][0];
-  if(!confirm((habilitar?'Conceder ':'Retirar ')+nome+' para '+email+'?'))return;
+  if(!confirm('Retirar o perfil '+nome+' de '+email+'?'))return;
   processando=true;
   botao.disabled=true;
   try{
-    const {data,error}=await client.rpc('alterar_permissao_213',{p_email:email,p_perfil:perfil,p_habilitar:habilitar});
+    const {data,error}=await client.rpc('alterar_permissao_213',{p_email:email,p_perfil:perfil,p_habilitar:false});
     if(error){mensagem(error.message,true);return;}
     if(await atualizar()){
-      mensagem(data?(habilitar?'Acesso concedido.':'Acesso retirado.'):'A conta já estava com esse estado de acesso.');
+      mensagem(data?'Acesso retirado.':'A conta já estava sem esse perfil.');
     }
   }catch{
     mensagem('Não foi possível completar a operação. Atualize a página para conferir o estado do acesso.',true);
@@ -189,7 +218,7 @@ el('logout').onclick=async()=>{
 async function convidar(email,perfil,botao){
   if(processando)return;
   const nome=perfis[perfil][0];
-  if(!confirm('Enviar convite para '+email+' com o perfil '+nome+'?'))return;
+  if(!confirm('Autorizar '+email+' com o perfil '+nome+'? Se for uma conta nova, será enviado um convite.'))return;
   processando=true;
   botao.disabled=true;
   mensagem('Enviando convite…');
@@ -202,14 +231,28 @@ async function convidar(email,perfil,botao){
       body:JSON.stringify({email,perfil})
     });
     const resultado=await resposta.json();
-    if(!resposta.ok){mensagem(resultado.erro||'O envio não foi confirmado.',true);return;}
-    if(await atualizar()){
-      if(resultado.enviado&&resultado.acesso_concedido){
-        el('account').value='';
-        mensagem('Convite enviado e perfil concedido.');
-      }else{
-        mensagem(resultado.aviso||'Confira o estado da conta antes de tentar novamente.',true);
+    // A função de convites responde 409 para conta existente e 207 se enviou
+    // o convite, mas ainda precisa concluir a concessão do perfil.
+    const contaExistente=resposta.status===409;
+    const conviteEnviado=resultado.enviado===true;
+    let perfilAdicionado=resultado.acesso_concedido===true;
+    if(contaExistente||(resposta.status===207&&conviteEnviado)){
+      const {data,error}=await client.rpc('alterar_permissao_213',{
+        p_email:email,p_perfil:perfil,p_habilitar:true
+      });
+      if(error){
+        mensagem((conviteEnviado?'Convite enviado, mas o perfil ficou pendente. ':'')+error.message,true);
+        return;
       }
+      perfilAdicionado=data===true;
+    }else if(!resposta.ok||!perfilAdicionado){
+      mensagem(resultado.erro||'O envio do convite e a concessão do perfil não foram confirmados.',true);
+      return;
+    }
+    if(await atualizar()){
+      el('account').value='';
+      mensagem(conviteEnviado?'Convite enviado e perfil concedido.':
+        perfilAdicionado?'Perfil adicionado à conta existente.':'A conta já tinha o perfil selecionado.');
     }
   }catch{
     mensagem('Não foi possível confirmar o envio. Confira a lista de acessos antes de tentar novamente.',true);
@@ -221,10 +264,8 @@ async function convidar(email,perfil,botao){
 
 el('grant-form').onsubmit=event=>{
   event.preventDefault();
-  const email=el('account').value.trim();
-  const perfil=el('role').value;
-  if(event.submitter.value==='convidar')convidar(email,perfil,event.submitter);
-  else alterar(email,perfil,true,event.submitter);
+  const email=el('account').value.trim().toLowerCase();
+  convidar(email,el('role').value,event.submitter||event.currentTarget.querySelector('button[type="submit"]'));
 };
 el('role').onchange=()=>el('role-description').textContent=perfis[el('role').value][1];
 el('role').onchange();
