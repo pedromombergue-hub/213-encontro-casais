@@ -1,28 +1,148 @@
 <!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Vagas e inscrições online | 213º ECNSJ</title>
 <style>
-:root{font-family:system-ui,-apple-system,Segoe UI,sans-serif;color:#19324f;background:#edf3fa}*{box-sizing:border-box}body{margin:0;background:linear-gradient(#dce9ff,#f2f6fc 330px)}header{background:linear-gradient(115deg,#081c69,#123db7 62%,#0d286e);color:white;padding:23px 5%;border-bottom:3px solid #d6ad56}header strong{font-size:22px}main{max-width:840px;margin:30px auto;padding:0 16px}.card{background:white;border:1px solid #d5e2f3;border-radius:18px;padding:24px;margin-bottom:18px;box-shadow:0 3px 14px #183f8510}h1{font-size:23px;margin:0 0 9px}h2{font-size:18px;margin:0 0 14px}.muted{color:#60748a;font-size:14px}label{display:block;font-weight:650;font-size:14px;margin:15px 0 6px}input,textarea{width:100%;font:inherit;padding:12px;border:1px solid #b9cce7;border-radius:10px}textarea{min-height:90px}button{background:linear-gradient(115deg,#123db7,#0d286e);color:#fff;border:0;border-radius:10px;padding:12px 20px;font:inherit;font-weight:650;cursor:pointer}button:disabled{opacity:.6;cursor:wait}button.secondary{background:#eaf2ff;color:#123b88;border:1px solid #a8c2f0}.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.metric{background:#f8fbff;border:1px solid #d5e2f3;border-radius:12px;padding:15px}.metric b{font-size:29px;display:block;color:#123b88}.metric span{font-size:13px;color:#60748a}.hide{display:none!important}.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px}.notice{background:#eef4ff;border:1px solid #b8d0f7;padding:12px;border-radius:10px;margin-top:14px;white-space:pre-wrap}.error{background:#fff0ed;border-color:#e7b0a6;color:#8c3125}table{width:100%;border-collapse:collapse}td,th{text-align:left;padding:11px 7px;border-bottom:1px solid #e1e8f2;font-size:13px}a{color:#123b88}@media(max-width:580px){.grid{grid-template-columns:1fr}.card{padding:16px}}
-</style></head><body><header><strong>213º Encontro de Casais · Administração</strong><div>Vagas e inscrições online — Núcleo São João</div></header><main>
-<section id="login" class="card"><h1>Acesso administrativo</h1><p class="muted">Administradores e usuários ativos da Secretaria podem gerir as vagas e as inscrições online. Use seu login já cadastrado.</p><form id="loginForm"><label>E-mail</label><input id="email" type="email" autocomplete="username" required><label>Senha</label><input id="password" type="password" autocomplete="current-password" required><div class="actions"><button type="submit">Entrar</button></div></form><div id="loginMsg" aria-live="polite"></div></section>
-<section id="app" class="hide"><div class="card"><div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap"><h1>Capacidade do 213º Encontro</h1><button class="secondary" id="logout">Sair</button></div><p class="muted" id="who"></p><div class="grid"><div class="metric"><b id="cap">—</b><span>Capacidade atual</span></div><div class="metric"><b id="occupied">—</b><span>Vagas ocupadas</span></div><div class="metric"><b id="available">—</b><span>Vagas disponíveis</span></div></div></div>
-<div class="card" id="inscricoes-online">
-  <h2>Inscrições online</h2>
-  <p id="openStatus" role="status">Consultando o status…</p>
-  <p class="muted">Este controle vale para o formulário público. A Secretaria pode cadastrar fichas em papel ou recebidas pelo WhatsApp a qualquer momento.</p>
-  <button type="button" id="togglePublic213" disabled>Carregando status…</button>
-  <div id="publicMsg213" aria-live="polite"></div>
-</div>
-<div class="card"><h2>Alterar limite de vagas</h2><p class="muted">A mudança será aplicada imediatamente ao banco. Não é possível reduzir o limite abaixo das vagas já ocupadas. Justifique a alteração para manter o histórico administrativo.</p><form id="capacityForm"><label for="newCap">Nova capacidade (casais)</label><input id="newCap" type="number" min="1" max="500" step="1" required><label for="reason">Justificativa (mínimo 10 caracteres)</label><textarea id="reason" minlength="10" required placeholder="Ex.: Ajuste de capacidade após confirmação da Casa de Retiro"></textarea><div class="actions"><button type="submit" id="save">Salvar nova capacidade</button><button type="button" class="secondary" id="refresh">Atualizar números</button></div></form><div id="msg" aria-live="polite"></div></div>
-<div class="card"><h2>Histórico de alterações</h2><div style="overflow:auto"><table><thead><tr><th>Data/hora</th><th>Anterior</th><th>Nova</th><th>Justificativa</th></tr></thead><tbody id="history"></tbody></table></div></div>
-</section></main>
+:root {
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  color: #19324f;
+  background: #f2f6fc;
+  --navy: #123b88;
+  --border: #d5e2f3;
+}
+* { box-sizing: border-box; }
+body { margin: 0; }
+header {
+  background: linear-gradient(115deg,#081c69,#123db7 62%,#0d286e);
+  border-bottom: 3px solid #d6ad56;
+  color: #fff;
+}
+.header-inner, main { width: min(100% - 36px, 1080px); margin-inline: auto; }
+.header-inner { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; padding: 16px 0; }
+.header-inner strong { font-size: 1rem; }
+.header-actions, .actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+main { margin-block: 28px 40px; }
+.page-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 18px; }
+h1 { margin: 0; font-size: clamp(1.5rem,4vw,2rem); line-height: 1.15; color: #102e57; }
+h2 { margin: 0 0 10px; font-size: 1.15rem; line-height: 1.25; }
+.muted { color: #48617d; font-size: .9rem; line-height: 1.5; }
+#who { margin: 6px 0 0; overflow-wrap: anywhere; }
+.card { min-width: 0; padding: 20px; border: 1px solid var(--border); border-radius: 15px; background: #fff; }
+#login { max-width: 480px; }
+#login h1 { font-size: 1.5rem; }
+label { display: block; font-size: .9rem; font-weight: 650; margin: 14px 0 6px; }
+input, textarea { width: 100%; min-height: 44px; font: inherit; padding: 10px 12px; border: 1px solid #9bb1cc; border-radius: 9px; color: inherit; }
+textarea { min-height: 76px; resize: vertical; }
+#newCap { max-width: 180px; }
+button, .button { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 9px 15px; border: 1px solid transparent; border-radius: 9px; font: inherit; font-weight: 650; text-align: center; }
+button { cursor: pointer; color: #fff; background: var(--navy); }
+button:disabled { opacity: .62; cursor: default; }
+button.secondary { color: var(--navy); border-color: #a8c2f0; background: #eaf2ff; }
+.button { text-decoration: none; }
+header .button, header button.secondary { color: #fff; background: #ffffff12; border-color: #ffffff83; }
+header a.button:hover, header button.secondary:hover { background: #ffffff28; }
+:focus-visible { outline: 3px solid #ac771e; outline-offset: 3px; }
+header :focus-visible { outline-color: #ffdb8a; }
+.grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 12px; margin-bottom: 16px; }
+.metric { padding: 16px; }
+.metric b { display: block; font-size: clamp(1.55rem,4vw,2rem); color: var(--navy); line-height: 1.15; margin-top: 5px; }
+.metric span { font-size: .88rem; color: #48617d; }
+.metric.available { background: #edf6ff; }
+.settings-grid { display: grid; grid-template-columns: 1fr 1fr; align-items: start; gap: 16px; margin-bottom: 16px; }
+.actions { margin-top: 14px; }
+.status-badge { display: inline-block; margin: 0; padding: 5px 11px; border-radius: 999px; font-size: .9rem; font-weight: 700; color: #384f67; background: #eaf0f6; }
+.status-badge[data-state="open"] { color: #175938; background: #e4f6eb; }
+.status-badge[data-state="closed"] { color: #694613; background: #fff0d4; }
+.notice { background: #eef4ff; border: 1px solid #b8d0f7; padding: 10px 12px; border-radius: 9px; margin: 12px 0; white-space: pre-wrap; }
+.notice:empty { display: none; }
+.error { background: #fff0ed; border-color: #e7b0a6; color: #8c3125; }
+.hide { display: none !important; }
+summary { font-weight: 700; cursor: pointer; }
+.table-scroll { overflow-x: auto; margin-top: 12px; }
+table { width: 100%; border-collapse: collapse; }
+td, th { text-align: left; padding: 10px 7px; border-bottom: 1px solid #e1e8f2; font-size: .85rem; }
+@media (max-width: 660px) {
+  main { margin-block: 20px 30px; }
+  .settings-grid { grid-template-columns: 1fr; gap: 12px; }
+  .grid { gap: 7px; }
+  .metric { padding: 10px 8px; }
+  .metric span { font-size: .76rem; }
+  .header-inner, main { width: calc(100% - 24px); }
+}
+</style>
+</head><body>
+<header>
+  <div class="header-inner">
+    <strong>213º Encontro de Casais · Núcleo São João</strong>
+    <nav class="header-actions" aria-label="Navegação do painel">
+      <a class="button" id="return213" href="painel_secretaria_213.html">Voltar à Secretaria</a>
+      <button type="button" class="secondary hide" id="logout">Sair</button>
+    </nav>
+  </div>
+</header>
+<main>
+  <p id="loading213" role="status">Verificando acesso…</p>
+  <section id="login" class="card hide">
+    <h1>Acesso administrativo</h1>
+    <p class="muted">Entre com a conta de Administrador ou da Secretaria.</p>
+    <form id="loginForm">
+      <label for="email">E-mail</label>
+      <input id="email" type="email" autocomplete="username" required>
+      <label for="password">Senha</label>
+      <input id="password" type="password" autocomplete="current-password" required>
+      <div class="actions"><button type="submit">Entrar</button></div>
+    </form>
+    <div id="loginMsg" aria-live="polite"></div>
+  </section>
+  <section id="app" class="hide" aria-labelledby="page-title">
+    <div class="page-heading">
+      <div><h1 id="page-title">Vagas e inscrições online</h1><p class="muted" id="who"></p></div>
+      <button type="button" class="secondary" id="refresh">Atualizar números</button>
+    </div>
+    <div id="refreshMsg213" role="status"></div>
+    <div class="grid" aria-label="Resumo das vagas">
+      <div class="card metric"><span>Limite de vagas</span><b id="cap">—</b></div>
+      <div class="card metric"><span>Vagas ocupadas</span><b id="occupied">—</b></div>
+      <div class="card metric available"><span>Vagas disponíveis</span><b id="available">—</b></div>
+    </div>
+    <div class="settings-grid">
+      <section class="card" id="inscricoes-online" aria-labelledby="inscricoes-title">
+        <h2 id="inscricoes-title">Formulário público</h2>
+        <p class="status-badge" id="openStatus" role="status">Consultando o status…</p>
+        <p class="muted">A Secretaria pode cadastrar fichas em papel ou recebidas pelo WhatsApp mesmo com as inscrições online fechadas.</p>
+        <button type="button" id="togglePublic213" disabled>Carregando status…</button>
+        <div id="publicMsg213" aria-live="polite"></div>
+      </section>
+      <section class="card" aria-labelledby="capacity-title">
+        <h2 id="capacity-title">Alterar limite de vagas</h2>
+        <p class="muted">O novo limite deve ser igual ou maior que o número de vagas ocupadas.</p>
+        <form id="capacityForm">
+          <label for="newCap">Novo limite (casais)</label>
+          <input id="newCap" type="number" min="1" max="500" step="1" required>
+          <label for="reason">Justificativa (mínimo 10 caracteres)</label>
+          <textarea id="reason" minlength="10" required></textarea>
+          <div class="actions"><button type="submit" id="save" disabled>Salvar novo limite</button></div>
+        </form>
+        <div id="msg" aria-live="polite"></div>
+      </section>
+    </div>
+    <details class="card">
+      <summary>Histórico de alterações do limite</summary>
+      <div class="table-scroll"><table><thead><tr><th scope="col">Data e hora</th><th scope="col">Anterior</th><th scope="col">Novo</th><th scope="col">Justificativa</th></tr></thead><tbody id="history"></tbody></table></div>
+    </details>
+  </section>
+</main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.95.3/dist/umd/supabase.min.js"></script><script>
 const client=window.supabase.createClient('https://tmbfnzgqzraceecwcjmc.supabase.co','sb_publishable_KukvWR5_dlzRfFW7ZD033Q__1pUiq0M');
 const $=id=>document.getElementById(id);let capacity=null,occupied=0;
-let publicOpen213=null, changingPublic213=false;
+let publicOpen213=null, changingPublic213=false, refreshVersion=0, publicVersion=0, savingCapacity=false;
+if(new URLSearchParams(location.search).get('origem')!=='secretaria'){
+  $('return213').href='admin.html';
+  $('return213').textContent='Voltar à Administração';
+}
 function message(t,error=false,target='msg'){const e=$(target);e.textContent=t;e.className='notice'+(error?' error':'')}
 function clean(t){return String(t??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
-async function init(){const {data:{user}}=await client.auth.getUser();if(!user){$('app').classList.add('hide');$('login').classList.remove('hide');return}const [{data:admin,error:adminError},{data:secretaria,error:secretariaError}]=await Promise.all([client.from('administradores_213').select('user_id').eq('user_id',user.id).maybeSingle(),client.from('secretaria_usuarios_213').select('user_id').eq('user_id',user.id).eq('ativo',true).maybeSingle()]);if((!admin&&!secretaria)||(adminError&&secretariaError)){await client.auth.signOut();message('Conta sem permissão de administrador ou Secretaria ativa.',true,'loginMsg');$('app').classList.add('hide');$('login').classList.remove('hide');return}$('who').textContent=(admin?'Administrador: ':'Secretaria: ')+user.email;$('login').classList.add('hide');$('app').classList.remove('hide');await refresh()}
+async function init(){const {data:{user}}=await client.auth.getUser();if(!user){$('app').classList.add('hide');$('login').classList.remove('hide');return}const [{data:admin,error:adminError},{data:secretaria,error:secretariaError}]=await Promise.all([client.from('administradores_213').select('user_id').eq('user_id',user.id).maybeSingle(),client.from('secretaria_usuarios_213').select('user_id').eq('user_id',user.id).eq('ativo',true).maybeSingle()]);if((!admin&&!secretaria)||(adminError&&secretariaError)){await client.auth.signOut();message('Conta sem permissão de administrador ou Secretaria ativa.',true,'loginMsg');$('app').classList.add('hide');$('login').classList.remove('hide');return}$('who').textContent=(admin?'Administrador: ':'Secretaria: ')+user.email;$('login').classList.add('hide');$('app').classList.remove('hide');$('logout').classList.remove('hide');await refresh()}
 function renderPublicStatus213(abertas){
  publicOpen213=abertas;
+ $('openStatus').dataset.state=abertas===null?'unknown':abertas?'open':'closed';
  $('openStatus').textContent=abertas===null?'Status indisponível. Clique em Atualizar números para consultar novamente.':abertas?'Inscrições online abertas':'Inscrições online fechadas';
  const button=$('togglePublic213');
  button.textContent=abertas===null?'Abertura indisponível':abertas?'Fechar inscrições online':'Abrir inscrições online';
@@ -40,6 +160,7 @@ $('togglePublic213').onclick=async()=>{
  try{
   const {data,error}=await client.rpc('definir_inscricoes_online_213',{p_abertas:abrir});
   if(error||typeof data!=='boolean')throw new Error(error?.message||'Resposta inesperada do servidor.');
+  ++publicVersion;
   renderPublicStatus213(data);
   message(data?'As inscrições online foram abertas.':'As inscrições online foram fechadas.',false,'publicMsg213');
  }catch(error){
@@ -50,9 +171,74 @@ $('togglePublic213').onclick=async()=>{
  }
 };
 
-async function refresh(){const [e,i,h]=await Promise.all([client.from('encontros_inscricoes_213').select('id,capacidade,inscricoes_abertas').eq('numero',213).single(),client.from('inscricoes_encontros_213').select('status,encontro_id'),client.from('historico_capacidade_213').select('capacidade_anterior,capacidade_nova,justificativa,alterado_em').order('alterado_em',{ascending:false}).limit(30)]);if(!changingPublic213)renderPublicStatus213(e.error?null:e.data.inscricoes_abertas);if(e.error||i.error||h.error){message('Falha na consulta: '+(e.error?.message||i.error?.message||h.error?.message),true);return}capacity=e.data.capacidade;occupied=i.data.filter(x=>x.encontro_id===e.data.id&&['vaga_provisoria','confirmada','participou'].includes(x.status)).length;$('cap').textContent=capacity;$('occupied').textContent=occupied;$('available').textContent=Math.max(0,capacity-occupied);$('newCap').value=capacity;$('history').innerHTML=h.data.length?h.data.map(x=>'<tr><td>'+clean(new Date(x.alterado_em).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo'}))+'</td><td>'+x.capacidade_anterior+'</td><td>'+x.capacidade_nova+'</td><td>'+clean(x.justificativa)+'</td></tr>').join(''):'<tr><td colspan="4">Nenhuma alteração registrada.</td></tr>'}
+async function refresh(){
+  const version=++refreshVersion;
+  const publicVersionAtStart=publicVersion;
+  const [e,i,h]=await Promise.all([
+    client.from('encontros_inscricoes_213').select('id,capacidade,inscricoes_abertas').eq('numero',213).single(),
+    client.from('inscricoes_encontros_213').select('status,encontro_id'),
+    client.from('historico_capacidade_213').select('capacidade_anterior,capacidade_nova,justificativa,alterado_em').order('alterado_em',{ascending:false}).limit(30)
+  ]);
+  if(version!==refreshVersion)return false;
+  if(!changingPublic213&&publicVersionAtStart===publicVersion){
+    renderPublicStatus213(e.error?null:e.data.inscricoes_abertas);
+  }
+  const error=e.error||i.error||h.error;
+  if(error){
+    $('save').disabled=true;
+    message('Falha na consulta: '+error.message,true,'refreshMsg213');
+    return false;
+  }
+  if($('refreshMsg213').classList.contains('error'))message('',false,'refreshMsg213');
+  capacity=e.data.capacidade;
+  occupied=i.data.filter(x=>x.encontro_id===e.data.id&&['vaga_provisoria','confirmada','participou'].includes(x.status)).length;
+  $('cap').textContent=capacity;
+  $('occupied').textContent=occupied;
+  $('available').textContent=Math.max(0,capacity-occupied);
+  $('newCap').value=capacity;
+  $('save').disabled=savingCapacity;
+  $('history').innerHTML=h.data.length?h.data.map(x=>'<tr><td>'+clean(new Date(x.alterado_em).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo'}))+'</td><td>'+x.capacidade_anterior+'</td><td>'+x.capacidade_nova+'</td><td>'+clean(x.justificativa)+'</td></tr>').join(''):'<tr><td colspan="4">Nenhuma alteração registrada.</td></tr>';
+  return true;
+}
 $('loginForm').onsubmit=async ev=>{ev.preventDefault();const btn=ev.target.querySelector('button');btn.disabled=true;const {error}=await client.auth.signInWithPassword({email:$('email').value.trim(),password:$('password').value});btn.disabled=false;if(error)message('Não foi possível entrar: '+error.message,true,'loginMsg');else await init()};
-$('logout').onclick=async()=>{await client.auth.signOut();location.reload()};$('refresh').onclick=refresh;
-$('capacityForm').onsubmit=async ev=>{ev.preventDefault();const n=Number($('newCap').value),reason=$('reason').value.trim();if(!Number.isInteger(n)||n<1||n>500||n<occupied||reason.length<10){message('Confira a nova capacidade, as vagas ocupadas e a justificativa.',true);return}if(n===capacity){message('A capacidade já está definida como '+n+'.',true);return}if(!confirm('Alterar capacidade do retiro de '+capacity+' para '+n+' casais?'))return;const btn=$('save');btn.disabled=true;const {error}=await client.rpc('alterar_capacidade_213',{p_capacidade:n,p_justificativa:reason});btn.disabled=false;if(error){message('Alteração não realizada: '+error.message,true);return}await refresh();$('reason').value='';message('Capacidade atualizada com sucesso. Alteração registrada no histórico.')};
-init();
+$('logout').onclick=async()=>{await client.auth.signOut();location.reload()};$('refresh').onclick=async()=>{
+  const btn=$('refresh');
+  btn.disabled=true;
+  message('Atualizando…',false,'refreshMsg213');
+  try{
+    if(await refresh())message('Números atualizados.',false,'refreshMsg213');
+    else if($('refreshMsg213').textContent==='Atualizando…')message('',false,'refreshMsg213');
+  }catch{
+    message('Não foi possível atualizar os números. Tente novamente.',true,'refreshMsg213');
+  }finally{btn.disabled=false;}
+};
+$('capacityForm').onsubmit=async ev=>{
+  ev.preventDefault();
+  if(savingCapacity||$('save').disabled)return;
+  const n=Number($('newCap').value),reason=$('reason').value.trim();
+  if(!Number.isInteger(n)||n<1||n>500||n<occupied||reason.length<10){
+    message('Confira o novo limite, as vagas ocupadas e a justificativa.',true);
+    return;
+  }
+  if(n===capacity){message('O limite de '+n+' casais já está em vigor.',true);return;}
+  if(!confirm('Alterar o limite de '+capacity+' para '+n+' casais?'))return;
+  savingCapacity=true;
+  $('save').disabled=true;
+  try{
+    const {error}=await client.rpc('alterar_capacidade_213',{p_capacidade:n,p_justificativa:reason});
+    if(error){message('Alteração não realizada: '+error.message,true);return;}
+    $('reason').value='';
+    message('Limite atualizado. Alteração registrada no histórico.');
+    await refresh();
+  }catch{
+    message('Não foi possível confirmar a alteração na tela. Atualize os números antes de tentar novamente.',true);
+  }finally{
+    savingCapacity=false;
+    $('save').disabled=!capacity||$('refreshMsg213').classList.contains('error');
+  }
+};
+init().catch(()=>{
+  $('login').classList.remove('hide');
+  message('Não foi possível verificar o acesso. Atualize a página para tentar novamente.',true,'loginMsg');
+}).finally(()=>$('loading213').classList.add('hide'));
 </script></body></html>
